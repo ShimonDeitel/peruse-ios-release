@@ -3,108 +3,108 @@ import SwiftUI
 struct PaywallView: View {
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
-    @State private var working = false
-    @State private var restoreMessage: String?
 
-    private let benefits: [(String, String, String)] = [
-        ("calendar", "Daily grid archive", "Replay every past day's logic grid, all the way back."),
-        ("square.grid.3x3.fill", "Bigger grids", "Step up to tougher 5x5 and 6x6 deduction puzzles."),
-        ("brain.head.profile", "An expert grid daily", "A second, harder hand-made grid every single day."),
-        ("lightbulb.fill", "Hints & themes", "Nudge tokens when you're stuck, plus board themes.")
+    private let benefits: [String] = [
+        "Use-history timeline and 'best vs worst value' rankings",
+        "Use reminders for neglected items and category insights",
+        "Cost-per-use trends over time and CSV export"
     ]
 
     var body: some View {
-        ZStack {
-            QMBackground()
-            ScrollView {
-                VStack(spacing: 22) {
-                    VStack(spacing: 8) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 40, weight: .semibold))
-                            .foregroundStyle(Color.qmAccent)
-                        Text("Lattice Pro").font(.largeTitle.weight(.heavy))
-                        Text("$0.99 / month. Auto-renews until you cancel.")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.top, 28)
-
-                    VStack(alignment: .leading, spacing: 14) {
-                        ForEach(benefits, id: \.0) { item in
-                            HStack(alignment: .top, spacing: 14) {
-                                Image(systemName: item.0)
-                                    .font(.system(size: 18, weight: .semibold))
+        NavigationStack {
+            ZStack {
+                QMBackground()
+                ScrollView {
+                    VStack(spacing: 28) {
+                        // Icon + title
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.qmCard)
+                                    .frame(width: 80, height: 80)
+                                Image(systemName: "chart.line.uptrend.xyaxis")
+                                    .font(.system(size: 36))
                                     .foregroundStyle(Color.qmAccent)
-                                    .frame(width: 28)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.1).font(.headline)
-                                    Text(item.2).font(.subheadline).foregroundStyle(.secondary)
+                            }
+                            .padding(.top, 16)
+
+                            Text("Per Use Pro")
+                                .font(.title.weight(.bold))
+
+                            Text("$0.99 / month. Auto-renews until you cancel.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        // Benefits
+                        VStack(spacing: 12) {
+                            ForEach(benefits, id: \.self) { benefit in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Color.qmCorrect)
+                                        .font(.title3)
+                                    Text(benefit)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
                                 }
-                                Spacer(minLength: 0)
+                                .qmCard(cornerRadius: 14)
                             }
                         }
-                    }
-                    .qmCard()
-                    .padding(.horizontal)
 
-                    VStack(spacing: 12) {
-                        Button { Task { await buy() } } label: {
-                            HStack {
-                                if working { ProgressView().tint(.white) }
-                                Text(working ? "Unlocking…" : "Unlock Lattice Pro · \(store.displayPrice)")
-                                    .font(.headline)
+                        // Purchase button
+                        Button {
+                            Haptics.tap()
+                            Task { await store.purchase() }
+                        } label: {
+                            if store.purchaseInFlight {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                Text("Unlock for \(store.displayPrice)/mo")
+                                    .frame(maxWidth: .infinity)
                             }
-                            .frame(maxWidth: .infinity).padding(.vertical, 6)
                         }
                         .prominentButton()
-                        .accessibilityIdentifier("paywall-unlock")
-                        .disabled(working)
+                        .disabled(store.purchaseInFlight)
 
-                        Button("Restore Purchase") { Task { await restore() } }
-                            .font(.subheadline).tint(.secondary)
-
-                        if let restoreMessage {
-                            Text(restoreMessage).font(.footnote).foregroundStyle(.secondary)
+                        // Restore
+                        Button("Restore Purchase") {
+                            Task { await store.restore() }
                         }
+                        .softButton()
 
-                        Text("Lattice Pro is a $0.99/month subscription that renews automatically unless canceled at least 24 hours before the period ends. Payment is charged to your Apple Account; manage or cancel anytime in Settings.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center).padding(.top, 4)
+                        // Disclosure
+                        VStack(spacing: 8) {
+                            Text("Subscription auto-renews monthly at \(store.displayPrice) unless cancelled at least 24 hours before the end of the current period. Cancel anytime in your App Store subscriptions.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
 
-                        HStack(spacing: 16) {
-                            Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
-                            Link("Privacy Policy", destination: URL(string: "https://shimondeitel.github.io/lattice-site/privacy.html")!)
+                            HStack(spacing: 16) {
+                                Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.qmAccent)
+                                Link("Privacy Policy", destination: URL(string: "https://shimondeitel.github.io/peruse-site/privacy.html")!)
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.qmAccent)
+                            }
                         }
-                        .font(.footnote).tint(Color.qmAccent)
-
-                        Text("Lattice never tracks you. Your progress stays on your device.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center).padding(.top, 4)
+                        .padding(.horizontal, 8)
+                        .padding(.bottom, 24)
                     }
-                    .padding(.horizontal).padding(.bottom, 30)
+                    .padding(.horizontal, 20)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
                 }
             }
         }
-        .overlay(alignment: .topTrailing) {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark.circle.fill").font(.title2)
-                    .foregroundStyle(.secondary).padding()
-            }
-            .accessibilityIdentifier("paywall-close")
+        .onChange(of: store.isPro) { _, newValue in
+            if newValue { dismiss() }
         }
-        .onChange(of: store.isPro) { _, newValue in if newValue { dismiss() } }
-    }
-
-    private func buy() async {
-        working = true
-        let ok = await store.purchase()
-        working = false
-        if ok { Haptics.success(); dismiss() }
-    }
-
-    private func restore() async {
-        await store.restore()
-        if store.isPro { Haptics.success(); dismiss() }
-        else { restoreMessage = "No previous purchase found on this Apple ID." }
     }
 }
